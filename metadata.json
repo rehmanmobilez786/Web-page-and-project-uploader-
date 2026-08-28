@@ -1,0 +1,6 @@
+{
+  "name": "GitHub Android & Web Uploader",
+  "description": "Upload Android ZIP projects and Web Applications to GitHub with auto-configured CI/CD workflows, zero-configuration GitHub Pages & Vercel white-screen fixes, and direct repository creation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
