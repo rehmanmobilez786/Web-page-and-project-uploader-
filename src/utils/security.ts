@@ -91,9 +91,7 @@ const SECRET_PATTERNS: {
     regex: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[\s\S]+?-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/g,
     description: 'Exposed Private SSH / RSA Encryption Key',
     severity: 'critical',
-    replacement: '-----BEGIN PRIVATE KEY-----
-YOUR_PRIVATE_KEY_MASKED
------END PRIVATE KEY-----'
+    replacement: '-----BEGIN PRIVATE KEY-----\\nYOUR_PRIVATE_KEY_MASKED\\n-----END PRIVATE KEY-----'
   },
   {
     type: 'Firebase Service Account Key',
