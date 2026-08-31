@@ -288,7 +288,7 @@ export const GitHubUploaderModal: React.FC<GitHubUploaderModalProps> = ({
                     type="password"
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
-                    placeholder="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                    placeholder="ghp_YOUR_GITHUB_PAT_TOKEN_HERE"
                     className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                   />
                   <button

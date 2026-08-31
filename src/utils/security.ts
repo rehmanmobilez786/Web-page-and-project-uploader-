@@ -91,14 +91,16 @@ const SECRET_PATTERNS: {
     regex: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[\s\S]+?-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/g,
     description: 'Exposed Private SSH / RSA Encryption Key',
     severity: 'critical',
-    replacement: '-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_MASKED\n-----END PRIVATE KEY-----'
+    replacement: '-----BEGIN PRIVATE KEY-----
+YOUR_PRIVATE_KEY_MASKED
+-----END PRIVATE KEY-----'
   },
   {
     type: 'Firebase Service Account Key',
     regex: /"private_key":\s*"-----BEGIN PRIVATE KEY[\\n\s\S]+?-----END PRIVATE KEY[\\n\s\S]+?"/g,
     description: 'Exposed Firebase Admin Service Account Private Key',
     severity: 'critical',
-    replacement: '"private_key": "-----BEGIN PRIVATE KEY-----\\nYOUR_FIREBASE_KEY_HERE\\n-----END PRIVATE KEY-----\\n"'
+    replacement: '"private_key": "-----BEGIN PRIVATE KEY-----\nYOUR_FIREBASE_KEY_HERE\n-----END PRIVATE KEY-----\n"'
   },
   {
     type: 'Generic Hardcoded Password in Config',

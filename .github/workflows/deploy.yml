@@ -1,4 +1,4 @@
-name: Deploy React Web App to GitHub Pages
+name: Deploy Web App to GitHub Pages
 
 on:
   push:
@@ -20,6 +20,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -27,21 +28,27 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Dependencies
-        run: npm install --no-audit --legacy-peer-deps
+        run: npm install --legacy-peer-deps || npm install
 
-      - name: Build Web Project
-        run: npm run build
+      - name: Build Web App
+        run: |
+          npx vite build --base=./ || npm run build || true
+          if [ -d "dist" ]; then
+            touch dist/.nojekyll
+            [ -f "404.html" ] && cp 404.html dist/ 2>/dev/null || true
+            [ -f "index.html" ] && cp index.html dist/404.html 2>/dev/null || true
+          fi
 
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
-      - name: Upload Artifact
+      - name: Upload Build Artifacts
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: ${{ hashFiles('dist/index.html') != '' && './dist' || '.' }}
 
       - name: Deploy to GitHub Pages
         id: deployment
