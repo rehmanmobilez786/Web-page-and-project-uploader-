@@ -1,0 +1,26 @@
+# GitLab CI/CD configuration for deploying Vite / React App to GitLab Pages
+image: node:20
+
+# Cache dependencies between builds
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+pages:
+  stage: deploy
+  script:
+    # 1. Install dependencies
+    - npm install --legacy-peer-deps --no-audit
+    # 2. Build the Vite React application
+    - npm run build
+    # 3. GitLab Pages requires the build output in a folder named 'public'
+    - rm -rf public
+    - mv dist public
+  artifacts:
+    paths:
+      - public
+  rules:
+    # Deploy only on pushes to main or master branches
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"

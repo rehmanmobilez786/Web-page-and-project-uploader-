@@ -1119,6 +1119,152 @@ export default defineConfig({
   return patched;
 }
 
+// Helper to generate .gitlab-ci.yml for GitLab Pages / Android CI
+export function getGitLabCiFile(
+  projectType: 'android' | 'website' = 'website',
+  isViteProject: boolean = true
+): ExtractedFile {
+  let content = '';
+
+  if (projectType === 'android') {
+    content = `# GitLab CI/CD configuration for Android APK build
+image: eclipse-temurin:17-jdk-jammy
+
+variables:
+  ANDROID_COMPILE_SDK: "34"
+  ANDROID_BUILD_TOOLS: "34.0.0"
+  ANDROID_SDK_TOOLS: "11076708"
+
+before_script:
+  - apt-get --quiet update --yes
+  - apt-get --quiet install --yes wget tar unzip lib32stdc++6 lib32z1
+  - export ANDROID_HOME=$PWD/android-sdk-linux
+  - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+  - wget --quiet --output-document=cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-\${ANDROID_SDK_TOOLS}_latest.zip
+  - unzip -d android-sdk-linux cmdline-tools.zip
+  - mkdir -p android-sdk-linux/cmdline-tools/latest
+  - mv android-sdk-linux/cmdline-tools/bin android-sdk-linux/cmdline-tools/latest/ 2>/dev/null || true
+  - mv android-sdk-linux/cmdline-tools/lib android-sdk-linux/cmdline-tools/latest/ 2>/dev/null || true
+  - echo y | sdkmanager --licenses > /dev/null || true
+  - sdkmanager "platforms;android-\${ANDROID_COMPILE_SDK}" "build-tools;\${ANDROID_BUILD_TOOLS}" > /dev/null
+  - chmod +x ./gradlew || true
+
+assembleDebug:
+  stage: build
+  script:
+    - ./gradlew assembleDebug
+  artifacts:
+    paths:
+      - app/build/outputs/apk/debug/*.apk
+    expire_in: 1 week
+`;
+  } else if (isViteProject) {
+    content = `# GitLab CI/CD configuration for Vite/React Web App on GitLab Pages
+image: node:20
+
+cache:
+  key: \${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+pages:
+  stage: deploy
+  script:
+    - npm install --legacy-peer-deps --no-audit
+    - npm run build
+    - rm -rf public
+    - mv dist public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
+`;
+  } else {
+    // Pure static HTML/CSS/JS website
+    content = `# GitLab CI/CD configuration for Static Website on GitLab Pages
+image: alpine:latest
+
+pages:
+  stage: deploy
+  script:
+    - mkdir -p .public_tmp
+    - cp -r * .public_tmp/ 2>/dev/null || true
+    - rm -rf public
+    - mv .public_tmp public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
+`;
+  }
+
+  return {
+    id: 'gitlab-ci-yml',
+    path: '.gitlab-ci.yml',
+    originalPath: '.gitlab-ci.yml',
+    name: '.gitlab-ci.yml',
+    ext: 'yml',
+    isBinary: false,
+    content,
+    size: content.length,
+    lineCount: content.split('\n').length,
+    isSelected: true
+  };
+}
+
+// Auto-patch files specifically for GitLab Pages
+export function patchFilesForGitLab(files: ExtractedFile[]): ExtractedFile[] {
+  let patched = patchFilesForGitHubPages(files);
+
+  const isAndroid = files.some(
+    (f) =>
+      f.name === 'AndroidManifest.xml' ||
+      f.ext === 'kt' ||
+      f.ext === 'gradle' ||
+      f.ext === 'kts'
+  );
+
+  const isVite = patched.some(
+    (f) =>
+      f.name === 'vite.config.ts' ||
+      f.name === 'vite.config.js' ||
+      (f.name === 'package.json' && f.content.includes('vite'))
+  );
+
+  // Injects .gitlab-ci.yml
+  const gitlabCiIndex = patched.findIndex((f) => f.name === '.gitlab-ci.yml' || f.path === '.gitlab-ci.yml');
+  const ciFile = getGitLabCiFile(isAndroid ? 'android' : 'website', isVite);
+
+  if (gitlabCiIndex >= 0) {
+    patched[gitlabCiIndex] = ciFile;
+  } else {
+    patched.push(ciFile);
+  }
+
+  return patched;
+}
+
+// Helper to download just the .gitlab-ci.yml
+export function downloadGitLabCiFile(
+  projectType: 'android' | 'website' = 'website',
+  isViteProject: boolean = true
+) {
+  const ciFile = getGitLabCiFile(projectType, isViteProject);
+  const blob = new Blob([ciFile.content], { type: 'text/yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '.gitlab-ci.yml';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // Helper to download just the .github/workflows directory as a ZIP file
 export async function downloadWorkflowZip(
   projectType: 'android' | 'website' = 'website',
@@ -1144,5 +1290,6 @@ export async function downloadWorkflowZip(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
 
 

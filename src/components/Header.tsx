@@ -32,16 +32,16 @@ export const Header: React.FC<HeaderProps> = ({
           <div>
             <div className="flex items-center space-x-2 rtl:space-x-reverse">
               <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
-                {isUrdu ? 'گیٹ ہب پروجیکٹ و ویب سائٹ اپلوڈر' : 'GitHub Code & Website Uploader'}
+                {isUrdu ? 'GitHub و GitLab پروجیکٹ اپلوڈر' : 'GitHub & GitLab Project Uploader'}
               </h1>
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <Github className="w-3 h-3 me-1 inline" /> v2.0
+                <Github className="w-3 h-3 me-1 inline" /> v2.5
               </span>
             </div>
             <p className="text-xs text-slate-400 hidden sm:block">
               {isUrdu
-                ? 'اینڈرائڈ پروجیکٹس (ZIP) اور ویب سائٹ پیجز (HTML/CSS/JS) براہ راست GitHub پر اپلوڈ کریں'
-                : 'Upload Android Apps (ZIP) & Website Pages (HTML/CSS/JS) directly to GitHub'}
+                ? 'اینڈرائڈ پروجیکٹس (ZIP) اور ویب سائٹس براہ راست GitHub یا GitLab پر اپلوڈ کریں'
+                : 'Upload Android Apps (ZIP) & Web Pages directly to GitHub or GitLab'}
             </p>
           </div>
         </div>

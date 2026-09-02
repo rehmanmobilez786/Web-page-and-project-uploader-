@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { ExtractedFile, ProjectMetadata } from './types';
-import { parseZipFile, parseWebFiles, createDemoAndroidProject, createDemoWebsiteProject, exportFilesToZip, patchFilesForGitHubPages, downloadWorkflowZip } from './utils/zip';
+import { parseZipFile, parseWebFiles, createDemoAndroidProject, createDemoWebsiteProject, exportFilesToZip, patchFilesForGitHubPages, patchFilesForGitLab, downloadWorkflowZip, downloadGitLabCiFile } from './utils/zip';
 import { Header } from './components/Header';
 import { ZipUploader } from './components/ZipUploader';
 import { AndroidProjectSummary } from './components/AndroidProjectSummary';
 import { FileTreeInspector } from './components/FileTreeInspector';
 import { GitHubUploaderModal } from './components/GitHubUploaderModal';
+import { GitLabUploaderModal } from './components/GitLabUploaderModal';
 import { QuickGuideModal } from './components/QuickGuideModal';
 import { Github, FileArchive, Trash2, ArrowUpRight, Sparkles, CheckCircle, ShieldCheck, Globe, Smartphone, Download } from 'lucide-react';
 
@@ -23,6 +24,7 @@ export default function App() {
   const [zipFileName, setZipFileName] = useState<string>('');
 
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
+  const [isGitLabModalOpen, setIsGitLabModalOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [isLiveWebModalOpen, setIsLiveWebModalOpen] = useState(false);
   const [isPagesGuideModalOpen, setIsPagesGuideModalOpen] = useState(false);
@@ -272,11 +274,20 @@ export default function App() {
                 )}
 
                 <button
+                  onClick={() => setIsGitLabModalOpen(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 hover:from-orange-500 hover:to-yellow-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                  title={isUrdu ? 'GitLab پر براہ راست اپلوڈ کریں' : 'Upload to GitLab'}
+                >
+                  <span className="text-sm">🦊</span>
+                  <span>{isUrdu ? 'GitLab پر اپلوڈ' : 'Upload to GitLab'}</span>
+                </button>
+
+                <button
                   onClick={() => setIsGitHubModalOpen(true)}
                   className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
                 >
                   <Github className="w-4 h-4" />
-                  <span>{isUrdu ? 'GitHub پر اپلوڈ کریں' : 'Upload to GitHub'}</span>
+                  <span>{isUrdu ? 'GitHub پر اپلوڈ' : 'Upload to GitHub'}</span>
                 </button>
 
                 <button
@@ -294,7 +305,19 @@ export default function App() {
                   title={isUrdu ? 'صرف .github/workflows کا زپ پاتھ کے ساتھ ڈاؤنلوڈ کریں' : 'Download .github/workflows folder as ZIP'}
                 >
                   <Download className="w-4 h-4 text-emerald-400" />
-                  <span>{isUrdu ? '📦 Workflow ZIP' : '📦 Workflow ZIP'}</span>
+                  <span>{isUrdu ? '📦 Workflow' : '📦 Workflow'}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const isVite = files.some(f => f.name === 'vite.config.ts' || (f.name === 'package.json' && f.content.includes('vite')));
+                    downloadGitLabCiFile(metadata?.projectType || 'website', isVite);
+                  }}
+                  className="px-3.5 py-2 bg-orange-950/80 hover:bg-orange-900 text-orange-300 border border-orange-700/60 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow"
+                  title={isUrdu ? '.gitlab-ci.yml فائل ڈاؤنلوڈ کریں' : 'Download .gitlab-ci.yml file'}
+                >
+                  <Download className="w-4 h-4 text-orange-400" />
+                  <span>{isUrdu ? '🦊 GitLab CI' : '🦊 GitLab CI'}</span>
                 </button>
 
                 <button
@@ -324,6 +347,7 @@ export default function App() {
               onToggleSelect={handleToggleSelect}
               onToggleSelectAll={handleToggleSelectAll}
               onOpenGitHubUpload={() => setIsGitHubModalOpen(true)}
+              onOpenGitLabUpload={() => setIsGitLabModalOpen(true)}
               language={language}
             />
 
@@ -335,7 +359,7 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-slate-800 bg-slate-900/60 py-4 text-center text-xs text-slate-500">
         <p>
-          GitHub Code & Website Uploader • {isUrdu ? 'اینڈرائڈ ایپس اور ویب سائٹ پیجز کی فاسٹ پبلشنگ کے لیے ڈیزائن شدہ' : 'Built for fast Android & Website GitHub publishing'}
+          GitHub & GitLab Code Uploader • {isUrdu ? 'اینڈرائڈ ایپس اور ویب سائٹ پیجز کی فاسٹ پبلشنگ کے لیے ڈیزائن شدہ' : 'Built for fast Android & Website GitHub/GitLab publishing'}
         </p>
       </footer>
 
@@ -346,6 +370,16 @@ export default function App() {
         files={files}
         projectName={metadata?.projectName || 'my-project'}
         projectType={metadata?.projectType || 'android'}
+        language={language}
+        onFilesUpdate={handleFilesUpdate}
+      />
+
+      <GitLabUploaderModal
+        isOpen={isGitLabModalOpen}
+        onClose={() => setIsGitLabModalOpen(false)}
+        files={files}
+        projectName={metadata?.projectName || 'my-project'}
+        projectType={metadata?.projectType || 'website'}
         language={language}
         onFilesUpdate={handleFilesUpdate}
       />

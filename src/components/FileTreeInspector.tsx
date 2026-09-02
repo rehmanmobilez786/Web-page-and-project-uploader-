@@ -24,6 +24,7 @@ interface FileTreeInspectorProps {
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: (select: boolean) => void;
   onOpenGitHubUpload: () => void;
+  onOpenGitLabUpload?: () => void;
   language: 'ur' | 'en';
 }
 
@@ -34,6 +35,7 @@ export const FileTreeInspector: React.FC<FileTreeInspectorProps> = ({
   onToggleSelect,
   onToggleSelectAll,
   onOpenGitHubUpload,
+  onOpenGitLabUpload,
   language
 }) => {
   const isUrdu = language === 'ur';
@@ -185,18 +187,35 @@ export const FileTreeInspector: React.FC<FileTreeInspectorProps> = ({
           </button>
         </div>
 
-        {/* Right: Direct GitHub Upload CTA */}
-        <button
-          onClick={onOpenGitHubUpload}
-          className="flex items-center space-x-2 rtl:space-x-reverse px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:scale-[1.02] shrink-0"
-        >
-          <Github className="w-4 h-4" />
-          <span>
-            {isUrdu
-              ? 'ڈائریکٹ GitHub پر اپلوڈ کریں (Push to GitHub)'
-              : 'Push Directly to GitHub'}
-          </span>
-        </button>
+        {/* Right: Direct GitHub and GitLab Upload CTAs */}
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpenGitLabUpload && (
+            <button
+              onClick={onOpenGitLabUpload}
+              className="flex items-center space-x-1.5 rtl:space-x-reverse px-4 py-2.5 bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-orange-600/20 transition-all hover:scale-[1.02] shrink-0"
+              title={isUrdu ? 'GitLab پر براہ راست اپلوڈ کریں' : 'Upload Directly to GitLab'}
+            >
+              <span className="text-sm">🦊</span>
+              <span>
+                {isUrdu
+                  ? 'GitLab پر اپلوڈ'
+                  : 'Push to GitLab'}
+              </span>
+            </button>
+          )}
+
+          <button
+            onClick={onOpenGitHubUpload}
+            className="flex items-center space-x-1.5 rtl:space-x-reverse px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:scale-[1.02] shrink-0"
+          >
+            <Github className="w-4 h-4" />
+            <span>
+              {isUrdu
+                ? 'GitHub پر اپلوڈ'
+                : 'Push to GitHub'}
+            </span>
+          </button>
+        </div>
 
       </div>
 

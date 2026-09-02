@@ -77,6 +77,37 @@ export interface GitHubRepo {
   default_branch: string;
 }
 
+export interface GitLabUser {
+  id: number;
+  username: string;
+  name: string;
+  avatar_url: string;
+  web_url: string;
+  state?: string;
+  scopes?: string[];
+}
+
+export interface GitLabProject {
+  id: number;
+  name: string;
+  name_with_namespace: string;
+  path: string;
+  path_with_namespace: string;
+  web_url: string;
+  default_branch: string;
+  visibility: 'public' | 'internal' | 'private';
+}
+
+export interface GitLabConfig {
+  token: string;
+  instanceUrl: string;
+  projectIdOrPath: string;
+  branch: string;
+  commitMessage: string;
+  isPrivate: boolean;
+  autoCreateProject: boolean;
+}
+
 export interface UploadState {
   status: 'idle' | 'connecting' | 'creating_repo' | 'uploading_blobs' | 'creating_tree' | 'committing' | 'completed' | 'error';
   progress: number; // 0 to 100
