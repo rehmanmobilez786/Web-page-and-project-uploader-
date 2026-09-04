@@ -411,7 +411,7 @@ export async function uploadProjectToGitLab(
   const namespace = projectData.path_with_namespace ? projectData.path_with_namespace.split('/')[0] : '';
   const projectSlug = projectData.path || projectData.name;
   if (namespace && projectSlug) {
-    pagesUrl = `https://${namespace}.gitlab.io/${projectSlug}/`;
+    pagesUrl = `https://${namespace.toLowerCase()}.gitlab.io/${projectSlug.toLowerCase()}/`;
   }
 
   const finalWebUrl = projectData.web_url || `https://gitlab.com/${projectData.path_with_namespace}`;

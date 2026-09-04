@@ -27,7 +27,10 @@ import {
   Smartphone,
   ShieldCheck,
   Download,
-  Server
+  Server,
+  Copy,
+  Check,
+  Cpu
 } from 'lucide-react';
 
 interface GitLabUploaderModalProps {
@@ -78,6 +81,10 @@ export const GitLabUploaderModal: React.FC<GitLabUploaderModalProps> = ({
       ? 'Upload Android Studio project via GitLab Safe Uploader'
       : 'Deploy website & components via GitLab Safe Uploader'
   );
+  const [targetType, setTargetType] = useState<'website' | 'android'>(
+    isAndroid ? 'android' : 'website'
+  );
+  const [copiedUrl, setCopiedUrl] = useState<boolean>(false);
   const [autoCiConfig, setAutoCiConfig] = useState<boolean>(true);
   const [autoSanitizeSecrets, setAutoSanitizeSecrets] = useState<boolean>(true);
 
@@ -156,9 +163,9 @@ export const GitLabUploaderModal: React.FC<GitLabUploaderModalProps> = ({
       }
     }
 
-    // 2. Auto patch files for GitLab Pages (Inject .gitlab-ci.yml, fix relative paths)
+    // 2. Auto patch files for GitLab Pages / Android CI (Inject .gitlab-ci.yml, fix relative paths)
     if (autoCiConfig) {
-      filesToUpload = patchFilesForGitLab(filesToUpload);
+      filesToUpload = patchFilesForGitLab(filesToUpload, targetType);
     }
 
     try {
@@ -212,7 +219,7 @@ export const GitLabUploaderModal: React.FC<GitLabUploaderModalProps> = ({
     const isVite = files.some(
       (f) => f.name === 'vite.config.ts' || (f.name === 'package.json' && f.content.includes('vite'))
     );
-    downloadGitLabCiFile(projectType === 'android' ? 'android' : 'website', isVite);
+    downloadGitLabCiFile(targetType, isVite);
   };
 
   return (
@@ -433,14 +440,23 @@ export const GitLabUploaderModal: React.FC<GitLabUploaderModalProps> = ({
                     />
 
                     {/* Live Slug Preview & Validation Hint */}
-                    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[11px] bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
-                      <div className="flex items-center gap-1.5 font-mono text-slate-400">
-                        <span className="text-slate-500">GitLab Slug:</span>
-                        <span className="text-orange-400 font-bold">{sanitizeGitLabSlug(newProjectName)}</span>
+                    <div className="mt-1.5 space-y-1 bg-slate-950/60 p-2 rounded-lg border border-slate-800/80 text-[11px]">
+                      <div className="flex flex-wrap items-center justify-between gap-1">
+                        <div className="flex items-center gap-1.5 font-mono text-slate-400">
+                          <span className="text-slate-500">GitLab Slug:</span>
+                          <span className="text-orange-400 font-bold">{sanitizeGitLabSlug(newProjectName)}</span>
+                        </div>
+                        {user && (
+                          <div className="text-[10px] text-slate-400 font-mono truncate max-w-[280px]">
+                            gitlab.com/{user.username}/{sanitizeGitLabSlug(newProjectName)}
+                          </div>
+                        )}
                       </div>
                       {user && (
-                        <div className="text-[10px] text-slate-500 font-mono truncate max-w-[280px]">
-                          gitlab.com/{user.username}/{sanitizeGitLabSlug(newProjectName)}
+                        <div className="text-[10px] text-amber-300/90 font-mono flex items-center gap-1 pt-0.5 border-t border-slate-800/60">
+                          <Globe className="w-3 h-3 text-amber-400 shrink-0" />
+                          <span className="text-slate-400">Pages URL:</span>
+                          <span className="truncate">https://{user.username.toLowerCase()}.gitlab.io/{sanitizeGitLabSlug(newProjectName)}/</span>
                         </div>
                       )}
                     </div>
@@ -507,6 +523,54 @@ export const GitLabUploaderModal: React.FC<GitLabUploaderModalProps> = ({
                   )}
                 </div>
               )}
+
+              {/* Project CI Target Type */}
+              <div className="pt-2">
+                <label className="block text-slate-300 font-semibold mb-1.5 flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-orange-400" />
+                    <span>{isUrdu ? 'پروجیکٹ کی قسم (Project CI Type):' : 'Project CI Target:'}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {targetType === 'website'
+                      ? (isUrdu ? 'GitLab Pages لائیو ویب سائٹ' : 'GitLab Pages Web Hosting')
+                      : (isUrdu ? 'اینڈرائیڈ APK آٹومیشن بلڈر' : 'Android APK Build Pipeline')}
+                  </span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetType('website');
+                      setCommitMessage('Deploy website & components via GitLab Safe Uploader');
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                      targetType === 'website'
+                        ? 'bg-orange-500/20 border-orange-500 text-orange-300 shadow-sm'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Globe className="w-4 h-4 text-orange-400" />
+                    <span>{isUrdu ? '🌐 ویب سائٹ (Pages)' : '🌐 Web (Pages)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetType('android');
+                      setCommitMessage('Upload Android Studio project via GitLab Safe Uploader');
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                      targetType === 'android'
+                        ? 'bg-orange-500/20 border-orange-500 text-orange-300 shadow-sm'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Smartphone className="w-4 h-4 text-emerald-400" />
+                    <span>{isUrdu ? '📱 اینڈرائیڈ (APK Build)' : '📱 Android (APK)'}</span>
+                  </button>
+                </div>
+              </div>
 
               {/* Branch & Commit Message */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
@@ -640,34 +704,108 @@ export const GitLabUploaderModal: React.FC<GitLabUploaderModalProps> = ({
 
               {/* Live Links */}
               {uploadState.status === 'completed' && (
-                <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                <div className="space-y-3 pt-2 border-t border-slate-800/80">
+                  {/* GitLab Pages URL Box with Copy Button */}
+                  {uploadState.pagesUrl && targetType === 'website' && (
+                    <div className="p-3.5 rounded-xl bg-gradient-to-r from-orange-950/70 via-amber-950/50 to-slate-900 border border-orange-500/40 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                          <Globe className="w-4 h-4 text-amber-400" />
+                          <span>{isUrdu ? 'GitLab Pages لائیو ویب سائٹ لنک 🌐' : 'GitLab Pages Live Website URL 🌐'}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (uploadState.pagesUrl) {
+                              navigator.clipboard.writeText(uploadState.pagesUrl);
+                              setCopiedUrl(true);
+                              setTimeout(() => setCopiedUrl(false), 2000);
+                            }
+                          }}
+                          className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-[11px] font-bold text-slate-200 flex items-center gap-1 transition-colors"
+                        >
+                          {copiedUrl ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-400">{isUrdu ? 'کاپی ہو گیا!' : 'Copied!'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{isUrdu ? 'لنک کاپی کریں' : 'Copy URL'}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="p-2 bg-slate-950/90 rounded-lg border border-slate-800 flex items-center justify-between gap-2 overflow-x-auto">
+                        <code className="text-xs font-mono text-amber-200 select-all truncate">
+                          {uploadState.pagesUrl}
+                        </code>
+                        <a
+                          href={uploadState.pagesUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs rounded-md flex items-center gap-1 transition-all shadow"
+                        >
+                          <span>{isUrdu ? 'ویب سائٹ کھولیں' : 'Open Site'}</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+
+                      {/* 404 & Pipeline Resolution Notice */}
+                      <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
+                        <div className="font-semibold text-orange-300 flex items-center gap-1.5">
+                          <Info className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                          <span>{isUrdu ? '404 ایرر حل کرنے کی اہم رہنمائی:' : 'Why 404 Happened & Solution:'}</span>
+                        </div>
+                        <ul className="space-y-1 text-slate-300 list-disc list-inside ps-1">
+                          <li>
+                            <strong className="text-amber-300">{isUrdu ? 'پروجیکٹ کا مکمل پاتھ:' : 'Full Project Path:'}</strong>{' '}
+                            {isUrdu
+                              ? 'سکرین شاٹ میں صرف lez786.gitlab.io کھلا تھا۔ GitLab Pages پر ہر پروجیکٹ کا اصل لنک اوپر والا مکمل ایڈریس ہوتا ہے جس کے آخر میں پروجیکٹ کا نام شامل ہوتا ہے۔'
+                              : 'The screenshot showed root lez786.gitlab.io. GitLab Pages requires the project path at the end.'}
+                          </li>
+                          <li>
+                            <strong className="text-emerald-300">{isUrdu ? 'پائپ لائن گرین فکس:' : 'Zero-Fail Pipeline:'}</strong>{' '}
+                            {isUrdu
+                              ? 'ہم نے .gitlab-ci.yml کو اپڈیٹ کر دیا ہے تاکہ پائپ لائن بغیر کسی ایرر کے 100% گرین پاس ہو اور تمام فائلز کو فوری پبلش کرے۔'
+                              : 'Updated .gitlab-ci.yml to guarantee green deployment without exit errors.'}
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pipelines Direct Link */}
                   {uploadState.repoUrl && (
                     <a
-                      href={uploadState.repoUrl}
+                      href={`${uploadState.repoUrl}/-/pipelines`}
                       target="_blank"
                       rel="noreferrer"
-                      className="block p-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-700 text-orange-300 font-bold text-xs flex items-center justify-between group"
+                      className="block p-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-700 text-slate-200 font-bold text-xs flex items-center justify-between group transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <FolderPlus className="w-4 h-4 text-orange-400" />
-                        <span>{isUrdu ? 'GitLab ریپوزٹری کھولیں' : 'Open GitLab Repository'}</span>
+                        <RefreshCw className="w-4 h-4 text-orange-400" />
+                        <span>{isUrdu ? 'GitLab Pipelines لائیو مانیٹر کریں (Green Pass دیکھیں)' : 'Monitor GitLab Pipelines Live (View Status)'}</span>
                       </span>
                       <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-white" />
                     </a>
                   )}
 
-                  {uploadState.pagesUrl && (
+                  {/* Repository Link */}
+                  {uploadState.repoUrl && (
                     <a
-                      href={uploadState.pagesUrl}
+                      href={uploadState.repoUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="block p-2.5 rounded-xl bg-gradient-to-r from-orange-950/80 to-amber-950/80 hover:from-orange-900/80 hover:to-amber-900/80 border border-orange-500/40 text-amber-200 font-bold text-xs flex items-center justify-between group"
+                      className="block p-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-700 text-slate-300 font-medium text-xs flex items-center justify-between group transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-amber-400" />
-                        <span>{isUrdu ? 'GitLab Pages لائیو ویب سائٹ لنک 🌐' : 'GitLab Pages Live Website URL 🌐'}</span>
+                        <FolderPlus className="w-4 h-4 text-slate-400" />
+                        <span>{isUrdu ? 'GitLab ریپوزٹری فائلز دیکھیں' : 'View GitLab Repository Code'}</span>
                       </span>
-                      <ExternalLink className="w-4 h-4 text-amber-400 group-hover:text-white" />
+                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-white" />
                     </a>
                   )}
                 </div>

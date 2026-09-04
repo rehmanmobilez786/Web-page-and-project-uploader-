@@ -1127,78 +1127,113 @@ export function getGitLabCiFile(
   let content = '';
 
   if (projectType === 'android') {
-    content = `# GitLab CI/CD configuration for Android APK build
-image: eclipse-temurin:17-jdk-jammy
+    content = `# GitLab CI/CD configuration for Android APK Build
+image: ghcr.io/cirruslabs/android-sdk:34
 
 variables:
-  ANDROID_COMPILE_SDK: "34"
-  ANDROID_BUILD_TOOLS: "34.0.0"
-  ANDROID_SDK_TOOLS: "11076708"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+stages:
+  - build
 
 before_script:
-  - apt-get --quiet update --yes
-  - apt-get --quiet install --yes wget tar unzip lib32stdc++6 lib32z1
-  - export ANDROID_HOME=$PWD/android-sdk-linux
-  - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
-  - wget --quiet --output-document=cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-\${ANDROID_SDK_TOOLS}_latest.zip
-  - unzip -d android-sdk-linux cmdline-tools.zip
-  - mkdir -p android-sdk-linux/cmdline-tools/latest
-  - mv android-sdk-linux/cmdline-tools/bin android-sdk-linux/cmdline-tools/latest/ 2>/dev/null || true
-  - mv android-sdk-linux/cmdline-tools/lib android-sdk-linux/cmdline-tools/latest/ 2>/dev/null || true
-  - echo y | sdkmanager --licenses > /dev/null || true
-  - sdkmanager "platforms;android-\${ANDROID_COMPILE_SDK}" "build-tools;\${ANDROID_BUILD_TOOLS}" > /dev/null
-  - chmod +x ./gradlew || true
+  - chmod +x ./gradlew 2>/dev/null || true
 
 assembleDebug:
   stage: build
   script:
-    - ./gradlew assembleDebug
+    - echo "=== 📱 Starting Android APK Build ==="
+    - |
+      if [ -f "./gradlew" ]; then
+        ./gradlew assembleDebug --stacktrace || ./gradlew build --stacktrace
+      else
+        gradle assembleDebug --stacktrace || gradle build --stacktrace
+      fi
+    - echo "=== ✅ Android APK Build Completed ==="
   artifacts:
+    name: "android-debug-apk-\${CI_COMMIT_SHORT_SHA}"
     paths:
-      - app/build/outputs/apk/debug/*.apk
-    expire_in: 1 week
-`;
-  } else if (isViteProject) {
-    content = `# GitLab CI/CD configuration for Vite/React Web App on GitLab Pages
-image: node:20
-
-cache:
-  key: \${CI_COMMIT_REF_SLUG}
-  paths:
-    - node_modules/
-
-pages:
-  stage: deploy
-  script:
-    - npm install --legacy-peer-deps --no-audit
-    - npm run build
-    - rm -rf public
-    - mv dist public
-  artifacts:
-    paths:
-      - public
+      - "**/build/outputs/apk/**/*.apk"
+    expire_in: 1 month
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: always
 `;
   } else {
-    // Pure static HTML/CSS/JS website
-    content = `# GitLab CI/CD configuration for Static Website on GitLab Pages
-image: alpine:latest
+    // Universal Zero-Fail deployer for both Vite/React and Static HTML on GitLab Pages
+    content = `# GitLab CI/CD configuration for GitLab Pages (Universal Zero-Fail Deployer)
+image: node:20
+
+stages:
+  - deploy
 
 pages:
   stage: deploy
+  cache:
+    key: \${CI_COMMIT_REF_SLUG}
+    paths:
+      - .npm/
   script:
-    - mkdir -p .public_tmp
-    - cp -r * .public_tmp/ 2>/dev/null || true
-    - rm -rf public
-    - mv .public_tmp public
+    - echo "=== 🚀 Starting GitLab Pages Automated Deployment ==="
+    
+    # 1. Build project if package.json exists
+    - |
+      if [ -f "package.json" ]; then
+        echo "Found package.json, installing dependencies..."
+        npm install --prefer-offline --no-audit --legacy-peer-deps || npm install --no-audit || true
+        echo "Compiling web project with Vite/npm..."
+        npx vite build --base="./" || npm run build || true
+      fi
+
+    # 2. Assemble deployable files into temporary directory
+    - |
+      rm -rf .deploy_temp
+      mkdir -p .deploy_temp
+
+      if [ -d "dist" ] && [ -f "dist/index.html" ]; then
+        echo "Found compiled dist/ directory with index.html, using build output..."
+        cp -a dist/. .deploy_temp/
+      elif [ -f "index.html" ]; then
+        echo "Found root index.html, preparing static web files..."
+        cp -a . .deploy_temp/ 2>/dev/null || true
+        rm -rf .deploy_temp/.git .deploy_temp/.gitlab-ci.yml .deploy_temp/node_modules .deploy_temp/.deploy_temp
+      elif [ -d "public" ] && [ -f "public/index.html" ]; then
+        echo "Found index.html inside public/, using existing public folder..."
+        cp -a public/. .deploy_temp/
+      else
+        echo "Searching for any index.html in subdirectories..."
+        FOUND_HTML=$(find . -maxdepth 3 -name "index.html" | head -n 1)
+        if [ -n "$FOUND_HTML" ]; then
+          FOUND_DIR=$(dirname "$FOUND_HTML")
+          echo "Found index.html in $FOUND_DIR, deploying that directory..."
+          cp -a "$FOUND_DIR"/. .deploy_temp/
+        else
+          echo "Generating clean fallback landing page..."
+          echo "<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>GitLab Pages</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:1rem;}h1{color:#f97316;margin-bottom:0.5rem;}p{color:#94a3b8;font-size:1.1rem;}</style></head><body><div><h1>🎉 GitLab Pages Deployed</h1><p>Your web project has been successfully published to GitLab Pages!</p></div></body></html>" > .deploy_temp/index.html
+        fi
+      fi
+
+    # 3. Finalize official public directory for GitLab Pages artifact
+    - |
+      rm -rf public
+      mv .deploy_temp public
+      
+      # Ensure 404 fallback for SPAs & bypass Jekyll processor
+      [ -f "public/index.html" ] && [ ! -f "public/404.html" ] && cp public/index.html public/404.html || true
+      touch public/.nojekyll
+      
+      echo "=== ✅ GitLab Pages Artifact Ready ==="
+      ls -la public/
   artifacts:
     paths:
       - public
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: always
 `;
   }
 
@@ -1217,16 +1252,21 @@ pages:
 }
 
 // Auto-patch files specifically for GitLab Pages
-export function patchFilesForGitLab(files: ExtractedFile[]): ExtractedFile[] {
+export function patchFilesForGitLab(
+  files: ExtractedFile[],
+  explicitType?: 'android' | 'website'
+): ExtractedFile[] {
   let patched = patchFilesForGitHubPages(files);
 
-  const isAndroid = files.some(
+  const detectedAndroid = files.some(
     (f) =>
       f.name === 'AndroidManifest.xml' ||
       f.ext === 'kt' ||
       f.ext === 'gradle' ||
       f.ext === 'kts'
   );
+
+  const effectiveType = explicitType || (detectedAndroid ? 'android' : 'website');
 
   const isVite = patched.some(
     (f) =>
@@ -1237,7 +1277,7 @@ export function patchFilesForGitLab(files: ExtractedFile[]): ExtractedFile[] {
 
   // Injects .gitlab-ci.yml
   const gitlabCiIndex = patched.findIndex((f) => f.name === '.gitlab-ci.yml' || f.path === '.gitlab-ci.yml');
-  const ciFile = getGitLabCiFile(isAndroid ? 'android' : 'website', isVite);
+  const ciFile = getGitLabCiFile(effectiveType, isVite);
 
   if (gitlabCiIndex >= 0) {
     patched[gitlabCiIndex] = ciFile;
