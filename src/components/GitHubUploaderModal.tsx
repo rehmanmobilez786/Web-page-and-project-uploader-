@@ -67,9 +67,11 @@ export const GitHubUploaderModal: React.FC<GitHubUploaderModalProps> = ({
   const [isRepoListLoading, setIsRepoListLoading] = useState<boolean>(false);
   const [mode, setMode] = useState<'existing' | 'new'>('new');
   const [selectedRepo, setSelectedRepo] = useState<string>('');
-  const [newRepoName, setNewRepoName] = useState<string>(
-    projectName ? projectName.toLowerCase().replace(/[^a-z0-9_-]/g, '-') : 'my-app'
-  );
+  const [newRepoName, setNewRepoName] = useState<string>(() => {
+    if (!projectName) return 'my-app';
+    const cleaned = projectName.toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/^[-_.]+|[-_.]+$/g, '');
+    return cleaned || 'my-app';
+  });
   const [isPrivate, setIsPrivate] = useState<boolean>(false);
   const [branch, setBranch] = useState<string>('main');
   const [commitMessage, setCommitMessage] = useState<string>(

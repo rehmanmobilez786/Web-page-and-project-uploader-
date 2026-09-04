@@ -4,7 +4,8 @@ import {
   getGitLabUser,
   getGitLabProjects,
   createGitLabProject,
-  uploadProjectToGitLab
+  uploadProjectToGitLab,
+  sanitizeGitLabSlug
 } from '../utils/gitlab';
 import { patchFilesForGitLab, downloadGitLabCiFile } from '../utils/zip';
 import { sanitizeSecretsInFiles } from '../utils/security';
@@ -67,8 +68,8 @@ export const GitLabUploaderModal: React.FC<GitLabUploaderModalProps> = ({
   const [isProjectListLoading, setIsProjectListLoading] = useState<boolean>(false);
   const [mode, setMode] = useState<'new' | 'existing'>('new');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [newProjectName, setNewProjectName] = useState<string>(
-    projectName ? projectName.toLowerCase().replace(/[^a-z0-9_-]/g, '-') : 'my-app'
+  const [newProjectName, setNewProjectName] = useState<string>(() =>
+    projectName ? sanitizeGitLabSlug(projectName) : 'my-app'
   );
   const [isPrivate, setIsPrivate] = useState<boolean>(false);
   const [branch, setBranch] = useState<string>('main');
@@ -165,15 +166,16 @@ export const GitLabUploaderModal: React.FC<GitLabUploaderModalProps> = ({
 
       // Create new project if selected
       if (mode === 'new') {
+        const cleanSlug = sanitizeGitLabSlug(newProjectName);
         setUploadState({
           status: 'creating_repo',
           progress: 10,
           detailMessage: isUrdu
-            ? `GitLab پر نیا پروجیکٹ "${newProjectName}" بنایا جا رہا ہے...`
-            : `Creating new GitLab project "${newProjectName}"...`
+            ? `GitLab پر نیا پروجیکٹ "${cleanSlug}" بنایا جا رہا ہے...`
+            : `Creating new GitLab project "${cleanSlug}"...`
         });
 
-        const newP = await createGitLabProject(token, newProjectName, isPrivate, instanceUrl);
+        const newP = await createGitLabProject(token, cleanSlug, isPrivate, instanceUrl);
         targetProjectId = String(newP.id);
       }
 
@@ -409,16 +411,51 @@ export const GitLabUploaderModal: React.FC<GitLabUploaderModalProps> = ({
               {mode === 'new' ? (
                 <div className="space-y-3 pt-1">
                   <div>
-                    <label className="block text-slate-300 font-semibold mb-1">
-                      {isUrdu ? 'پروجیکٹ کا نام (Project Name):' : 'Project Name:'}
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-slate-300 font-semibold">
+                        {isUrdu ? 'پروجیکٹ کا نام (Project Name):' : 'Project Name:'}
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {isUrdu ? 'صرف انگریزی و اعداد' : 'Letters & Numbers'}
+                      </span>
+                    </div>
                     <input
                       type="text"
                       value={newProjectName}
                       onChange={(e) => setNewProjectName(e.target.value)}
+                      onBlur={() => {
+                        if (newProjectName) {
+                          setNewProjectName(sanitizeGitLabSlug(newProjectName));
+                        }
+                      }}
                       placeholder="my-awesome-app"
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-orange-500"
                     />
+
+                    {/* Live Slug Preview & Validation Hint */}
+                    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[11px] bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
+                      <div className="flex items-center gap-1.5 font-mono text-slate-400">
+                        <span className="text-slate-500">GitLab Slug:</span>
+                        <span className="text-orange-400 font-bold">{sanitizeGitLabSlug(newProjectName)}</span>
+                      </div>
+                      {user && (
+                        <div className="text-[10px] text-slate-500 font-mono truncate max-w-[280px]">
+                          gitlab.com/{user.username}/{sanitizeGitLabSlug(newProjectName)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Helpful warning if user typed trailing '-' or '_' or '.' */}
+                    {newProjectName && (/^[-_.]|[-_.]$/.test(newProjectName.trim()) || newProjectName.includes('--')) && (
+                      <p className="mt-1 text-[11px] text-amber-400/90 flex items-center gap-1">
+                        <Info className="w-3 h-3 shrink-0" />
+                        <span>
+                          {isUrdu
+                            ? 'شروع یا آخر کے علامات (- / _ / .) خودکار طریقے سے ہٹا دیے جائیں گے'
+                            : 'Leading/trailing symbols will be automatically cleaned for GitLab compatibility'}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-2 rtl:space-x-reverse pt-1">

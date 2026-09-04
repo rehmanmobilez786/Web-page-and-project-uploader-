@@ -94,6 +94,63 @@ export async function getGitLabProjects(
   }));
 }
 
+// Sanitize input into a valid GitLab repository path slug
+// GitLab rules:
+// - Can only include non-accented letters, digits, '_', '-' and '.'
+// - Must NOT start with '-', '_', or '.'
+// - Must NOT end with '-', '_', '.', '.git', or '.atom'
+// - Cannot have consecutive dots
+export function sanitizeGitLabSlug(input: string): string {
+  if (!input || typeof input !== 'string') return 'my-app';
+
+  let s = input.trim().toLowerCase();
+
+  // Normalize Unicode characters (remove accents/diacritics)
+  try {
+    s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  } catch {
+    // ignore if not supported
+  }
+
+  // Replace spaces, slashes, and any character not in [a-z0-9_.-] with a hyphen
+  s = s.replace(/[^a-z0-9_.-]/g, '-');
+
+  // Collapse consecutive hyphens: e.g. "---" -> "-"
+  s = s.replace(/-+/g, '-');
+
+  // Collapse consecutive dots: e.g. ".." -> "."
+  s = s.replace(/\.+/g, '.');
+
+  // Strip forbidden starting characters: '-', '_', '.'
+  s = s.replace(/^[-_.]+/g, '');
+
+  // Strip forbidden ending extensions: '.git', '.atom'
+  s = s.replace(/\.(git|atom)$/i, '');
+
+  // Strip forbidden ending characters: '-', '_', '.'
+  s = s.replace(/[-_.]+$/g, '');
+
+  // If empty or too short (e.g. was all non-latin characters or symbols)
+  if (!s || s.length < 2) {
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
+    s = `app-${randomSuffix}`;
+  }
+
+  // Limit length to 80 chars
+  if (s.length > 80) {
+    s = s.slice(0, 80).replace(/[-_.]+$/g, '');
+  }
+
+  return s;
+}
+
+// Clean human-readable project title
+export function sanitizeGitLabName(input: string, fallbackSlug: string): string {
+  if (!input || !input.trim()) return fallbackSlug;
+  const cleaned = input.trim().replace(/^[-_.]+|[-_.]+$/g, '');
+  return cleaned || fallbackSlug;
+}
+
 // Create new project on GitLab
 export async function createGitLabProject(
   token: string,
@@ -101,8 +158,8 @@ export async function createGitLabProject(
   isPrivate: boolean,
   instanceUrl: string = DEFAULT_GITLAB_API
 ): Promise<GitLabProject> {
-  const cleanName = projectName.trim();
-  const pathSlug = cleanName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  const pathSlug = sanitizeGitLabSlug(projectName);
+  const cleanTitle = sanitizeGitLabName(projectName, pathSlug);
 
   const res = await safeGitLabFetch(
     '/projects',
@@ -113,7 +170,7 @@ export async function createGitLabProject(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        name: cleanName,
+        name: cleanTitle,
         path: pathSlug,
         visibility: isPrivate ? 'private' : 'public',
         initialize_with_readme: true,
@@ -125,10 +182,26 @@ export async function createGitLabProject(
 
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
-    const message = typeof errData.message === 'object'
-      ? JSON.stringify(errData.message)
-      : errData.message || res.statusText;
-    throw new Error(`GitLab پر نیا پروجیکٹ بنانے میں ناکامی: ${message}`);
+    let cleanErrMsg = '';
+
+    if (errData && typeof errData.message === 'object' && errData.message !== null) {
+      const issues: string[] = [];
+      for (const [key, val] of Object.entries(errData.message)) {
+        const valText = Array.isArray(val) ? val.join(', ') : String(val);
+        if (valText.includes('has already been taken')) {
+          issues.push(`اس نام سے GitLab پروجیکٹ پہلے سے موجود ہے (${key}: already taken)`);
+        } else if (valText.includes('can only include') || valText.includes('must not start') || valText.includes('nor end with')) {
+          issues.push(`پروجیکٹ پاتھ میں صرف انگریزی حروف، نمبرز اور درمیان میں '-' قابل قبول ہیں (شروع یا آخر میں نہیں)`);
+        } else {
+          issues.push(`${key}: ${valText}`);
+        }
+      }
+      cleanErrMsg = issues.join(' • ');
+    } else {
+      cleanErrMsg = errData.message || errData.error || res.statusText;
+    }
+
+    throw new Error(`GitLab پر نیا پروجیکٹ بنانے میں خرابی: ${cleanErrMsg}`);
   }
 
   const p = await res.json();
